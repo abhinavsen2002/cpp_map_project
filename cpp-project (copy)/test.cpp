@@ -48,6 +48,11 @@ struct way{
     vector<long long int> wayList;
 };
 
+struct parent{
+    int index;
+    string wayid;
+};
+
 //toRadians and distance is standard code implemented from online sources to calculate distance
 double toRadians(const double degree)
 {
@@ -234,7 +239,25 @@ void Parsing(struct node nodes[], struct way ways[]){
 
 }
 
-void PrintClosestNodes(struct node nodes[], int id, int k){
+int findIndex(struct node nodes[], long long int nodeId){
+    int first = 0; int last = NumberNodes-1;
+    int mid;    
+    while(first<=last){
+        mid = first+(last-first)/2;
+        if (nodes[mid].nodeid==nodeId){
+            return mid;
+        }        
+        else if (nodes[mid].nodeid<nodeId){
+            first = mid+1;
+        }
+        else{
+            last = mid-1;
+        }
+    }
+    return -1;
+}
+
+void PrintClosestNodes(struct node nodes[], long long int id, int k){
     int index;
     for(int i = 0; i<NumberNodes; i++){
         if(nodes[i].nodeid == id)
@@ -246,6 +269,13 @@ void PrintClosestNodes(struct node nodes[], int id, int k){
         nodeDistances[i].n = nodes[i]; 
         nodeDistances[i].distance = distance(nodes[i], nodes[index]); 
     }
+    ofstream fout;
+    fout.open("distances.txt");
+    for(int i = 0; i<NumberNodes; i++){
+        fout<<nodeDistances[i].n.nodeid<<"--> distance: "<<nodeDistances[i].distance<<'\n';
+    }
+    fout.close();
+
     sort(nodeDistances, nodeDistances+NumberNodes, compareDistances);
     cout<<"\nthe k closest nodes are: \n";
     for(int i = 1; i<=k; i++){
@@ -266,26 +296,6 @@ void search(struct node nodes[], string c){
             cout<<j<<"--> id: "<<nodes[i].nodeid<<" name: "<<nodes[i].name<<"\n";
         }
     }
-}
-
-int findIndex(struct node nodes[], long long int nodeId){
-    int first = 0; int last = NumberNodes-1;
-    int mid;    
-    while(first<=last){
-        mid = first+(last-first)/2;
-        if (nodes[mid].nodeid==nodeId){
-            return mid;
-        }        
-        else if (nodes[mid].nodeid<nodeId){
-            first = mid+1;
-        }
-        else{
-            last = mid-1;
-        }
-    }
-    return -1;
-    
-
 }
 
 void addEdge(vector <edgeElement> adj[], struct node nodes[], long long int nodeId1, long long int nodeId2, string wayid){
@@ -496,15 +506,41 @@ void printArr(double dist[], int n)
     fout.close();
 }
  
+void printPath(struct node nodes[], struct parent parents[], int src, int dest){
+    vector<parent> path;
+    int j = 0;
+    parent p;
+    p.index = dest;
+    p.wayid = "none";
+    
+    while(1){
+        
+        path.push_back(p);
+        j++;
+        if(p.index == src){
+            break;
+        }
+        p = parents[p.index];
+    }
+    ofstream fout;
+    fout.open("path.txt");
+    cout<<"\ninstructions for shortest path can be found in path.txt: \n";
+    for(int i = j-1; i>=1; i--){
+        fout<<"go to: "<<nodes[path[i-1].index].nodeid<<" via wayid: "<<path[i].wayid<<"\n";
+    }
+    
+}
+
 // The main function that calculates
 // distances of shortest paths from src to all
 // vertices. It is a O(ELogV) function
-void dijkstra(vector <edgeElement> adj[], int src, int dest)
+void dijkstra(vector <edgeElement> adj[], int src, int dest, struct node nodes[])
 {    
     int V = NumberNodes;  
     // dist values used to pick
     // minimum weight edge in cut
-    double dist[V];    
+    double dist[V];  
+    struct parent parents[V];  
  
     // minHeap represents set E
     struct MinHeap* minHeap = createMinHeap(V);
@@ -558,6 +594,10 @@ void dijkstra(vector <edgeElement> adj[], int src, int dest)
             if (isInMinHeap(minHeap, v) && dist[u] != 500000 && it.distance + dist[u] < dist[v])
             {
                 dist[v] = dist[u] + it.distance;
+                struct parent p;
+                p.index = u;
+                p.wayid = it.wayid;
+                parents[v] = p;
  
                 // update distance
                 // value in min heap also
@@ -567,6 +607,8 @@ void dijkstra(vector <edgeElement> adj[], int src, int dest)
     }
 
     cout<<"\nthe shortest distance between the 2 nodes is: "<<dist[dest];
+
+    printPath(nodes, parents, src, dest);
  
     // print the calculated shortest distances
     printArr(dist, V);
@@ -579,6 +621,10 @@ int main(){
     struct way ways[NumberWays];
     vector<edgeElement> adj[NumberNodes];
     Parsing(nodes, ways);
+    // long long int i1 = findIndex(nodes, 3258023129);
+    // long long int i2 = findIndex(nodes, 9236071057);
+
+    // cout<<"\n\n distance: "<<distance(nodes[i1], nodes[i2])<<"\n\n";
     
     cout<<"\n\nenter 1 to find the total number of nodes and ways discovered in the given osm file\n";
     cout<<"enter 2 to search for a node by typing in a substring\n";
@@ -618,7 +664,7 @@ int main(){
             cin>>id1>>id2;
             index1 = findIndex(nodes, id1);
             index2 = findIndex(nodes, id2);
-            dijkstra(adj, index1, index2);
+            dijkstra(adj, index1, index2, nodes);
             break;
         default: 
             cout<<"wrong input";
